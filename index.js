@@ -48,19 +48,69 @@ app.post("/ekle", (req, res) => {
         }
     })
 })
-
+/*
 app.get("/listele", (req, res) => {
     const sql = "select * from urunler";
+    const toplam = sum();
     let params = [];
     db.all(sql, params, (err, rows) => {
         if (err) res.send("error var");
         res.json({
             message: "islem basarili",
-            data: rows
+            data: [...rows],
+            toplam
         })
     })
 })
 
+const sum = () => {
+    const sql = "select sum(tutar) as tutar from urunler";
+    let params = [];
+    db.all(sql, params, (err, rows) => {
+        if (err) res.send("error var");
+        return rows[0].tutar
+    })
+}*/
+
+app.get("/listele", async (req, res) => {
+    try {
+        const sql = "SELECT * FROM urunler";
+        const toplam = await sum();
+        let params = [];
+        const rows = await getQueryResult(sql, params);
+        res.json({
+            message: "İşlem başarılı",
+            data: [...rows],
+            toplam
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Bir hata oluştu" });
+    }
+});
+
+const sum = async () => {
+    try {
+        const sql = "SELECT SUM(tutar) AS tutar FROM urunler";
+        let params = [];
+        const rows = await getQueryResult(sql, params);
+        return rows[0].tutar;
+    } catch (err) {
+        throw err;
+    }
+};
+
+const getQueryResult = (sql, params) => {
+    return new Promise((resolve, reject) => {
+        db.all(sql, params, (err, rows) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(rows);
+            }
+        });
+    });
+};
 
 app.delete("/sil/:id", (req, res) => {
     const sql = "DELETE FROM urunler WHERE id = ?";
