@@ -1,6 +1,7 @@
 const express = require("express");
 const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('database.db')
+const cors = require("cors");
 
 // db.serialize(() => {
 //     db.run('CREATE TABLE lorem (info TEXT)')
@@ -22,6 +23,7 @@ const db = new sqlite3.Database('database.db')
 const app = express();
 
 app.use(express.json());
+app.use(cors());
 
 app.get('/', (req, res) => {
     /* db.run(`CREATE TABLE "urunler" (
