@@ -1,127 +1,95 @@
 const express = require("express");
-const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('database.db')
 const cors = require("cors");
+const mysql = require('mysql2');
+require('dotenv').config()
 
-// db.serialize(() => {
-//     db.run('CREATE TABLE lorem (info TEXT)')
-//     const stmt = db.prepare('INSERT INTO lorem VALUES (?)')
+const connection = mysql.createConnection({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    database: process.env.DB_DB,
+    password: process.env.DB_PWD
+});
 
-//     for (let i = 0; i < 10; i++) {
-//         stmt.run(`Ipsum ${i}`)
-//     }
+connection.connect((err) => {
+    if (err) throw err;
+    console.log("db bağlantısı başarılı")
+})
 
-//     stmt.finalize()
-
-//     db.each('SELECT rowid AS id, info FROM lorem', (err, row) => {
-//         console.log(`${row.id}: ${row.info}`)
-//     })
-// })
-
-// db.close()
 
 const app = express();
+
+console.log(process.env.DB_HOST)
 
 app.use(express.json());
 app.use(cors());
 
 app.get('/', (req, res) => {
-    /* db.run(`CREATE TABLE "urunler" (
-         "id"	INTEGER UNIQUE,
-         "tarih"	TEXT,
-         "miktar"	INTEGER,
-         "birim_fiyat"	REAL,
-         "tutar"	REAL,
-         PRIMARY KEY("id" AUTOINCREMENT)
-     )`)*/
-    res.send("db create");
+    res.send("hi bro");
 })
 
 app.post("/ekle", (req, res) => {
     const { tarih, miktar, birim_fiyat } = req.body;
-    const stmt = db.prepare("INSERT INTO urunler (tarih,miktar,birim_fiyat,tutar) values (?,?,?,?)");
-    stmt.run(tarih, miktar, birim_fiyat, miktar * birim_fiyat, (err) => {
+    connection.query("INSERT INTO islem_takip (tarih,miktar,birim_fiyat,tutar) values (?,?,?,?)", [tarih, miktar, birim_fiyat, miktar * birim_fiyat], (err, result) => {
         if (err) {
             console.log(err)
         } else {
-            res.send("kayıt başarılı")
+            res.send("kayit basarili")
         }
     })
 })
-/*
-app.get("/listele", (req, res) => {
-    const sql = "select * from urunler";
-    const toplam = sum();
-    let params = [];
-    db.all(sql, params, (err, rows) => {
-        if (err) res.send("error var");
-        res.json({
-            message: "islem basarili",
-            data: [...rows],
-            toplam
-        })
-    })
-})
-
-const sum = () => {
-    const sql = "select sum(tutar) as tutar from urunler";
-    let params = [];
-    db.all(sql, params, (err, rows) => {
-        if (err) res.send("error var");
-        return rows[0].tutar
-    })
-}*/
 
 app.get("/listele", async (req, res) => {
     try {
-        const sql = "SELECT * FROM urunler";
-        const toplam = await sum();
-        let params = [];
-        const rows = await getQueryResult(sql, params);
-        res.json({
-            message: "İşlem başarılı",
-            data: [...rows],
-            toplam
+        const results = await new Promise((resolve, reject) => {
+            connection.query('SELECT * FROM islem_takip', (err, results, fields) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(results);
+                }
+            });
+        });
+
+        const toplam = await new Promise((resolve, reject) => {
+            connection.query('SELECT sum(tutar) as toplam FROM islem_takip', (err, results, fields) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(results);
+                }
+            });
+        })
+
+        // Burada veriler alındığında devam ediyoruz
+        let liste = results;
+        let toplamlar = toplam
+
+        res.send({
+            liste,
+            toplam: toplamlar[0].toplam
         });
     } catch (err) {
+        // Hata işleme kodu
         console.error(err);
-        res.status(500).json({ message: "Bir hata oluştu" });
+        res.status(500).json({ error: 'Veritabanı hatası' });
     }
 });
 
-const sum = async () => {
-    try {
-        const sql = "SELECT SUM(tutar) AS tutar FROM urunler";
-        let params = [];
-        const rows = await getQueryResult(sql, params);
-        return rows[0].tutar;
-    } catch (err) {
-        throw err;
-    }
-};
-
-const getQueryResult = (sql, params) => {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(rows);
-            }
-        });
-    });
-};
 
 app.delete("/sil/:id", (req, res) => {
-    const sql = "DELETE FROM urunler WHERE id = ?";
+    const sql = "DELETE FROM islem_takip WHERE id = ?";
     let params = [req.params.id];
-    db.run(sql, params, (err, result) => {
-        if (err) {
-            res.status(400).json({ "error": res.message })
-            return;
-        } else {
-            res.json({ "message": "deleted", changes: this.changes })
-        }
+    connection.query(sql, params, (err, res) => {
+        console.log("silme işlemi başarılı")
+    })
+})
+
+
+app.put("/guncelle/:id", (req, res) => {
+    const sql = "update islem_takip set tamamlandi = 'evet' where id = ?"
+    let params = [req.params.id];
+    connection.query(sql, params, (err, res) => {
+        console.log("güncelleme işlemi başarılı işlemi başarılı")
     })
 })
 
